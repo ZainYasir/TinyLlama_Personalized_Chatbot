@@ -9,9 +9,9 @@ def get_tokenized_dataset(model_name="TinyLlama/TinyLlama-1.1B-Chat-v1.0"):
     # Load dataset
     data = load_dataset("json", data_files="/kaggle/working/TinyLlama_Personalized_Chatbot/puck_knowledge_10k.jsonl")["train"]
 
+    
     def format(example):
-        # Customize this according to your JSONL format
-        return f"<|user|>: {example['question']}\n<|assistant|>: {example['answer']}"
+        return f"<|user|>: {example['instruction']}\n<|assistant|>: {example['response']}"
 
     def tokenize(example):
         text = format(example)
