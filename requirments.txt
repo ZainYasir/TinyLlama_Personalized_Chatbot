@@ -1,0 +1,6 @@
+transformers==4.40.1
+datasets
+peft==0.10.0
+accelerate
+bitsandbytes
+scikit-learn
