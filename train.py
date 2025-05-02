@@ -2,6 +2,10 @@ import torch
 from transformers import AutoModelForCausalLM, TrainingArguments, Trainer
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 from prepare_dataset import get_tokenized_dataset
+import os
+
+# Disable W&B
+os.environ["WANDB_MODE"] = "disabled"
 
 # Load data
 tokenized_dataset, tokenizer = get_tokenized_dataset()
@@ -40,6 +44,7 @@ training_args = TrainingArguments(
     save_strategy="epoch",
     fp16=True,
     push_to_hub=False,
+    report_to="none",  # Disable W&B logging
 )
 
 # Trainer
