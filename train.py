@@ -1,60 +1,69 @@
-import os
-os.environ["WANDB_MODE"] = "disabled"
-
 import torch
-from transformers import AutoModelForCausalLM, TrainingArguments, Trainer
-from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
-from prepare_dataset import get_tokenized_dataset
+from transformers import Trainer, TrainingArguments, AutoModelForCausalLM, AutoTokenizer
+from peft import PeftModelForCausalLM, PeftConfig
+from bitsandbytes import BitsAndBytesConfig
+from datasets import load_dataset
+import os
 
-# Load data
-tokenized_dataset, tokenizer = get_tokenized_dataset()
+# Load the dataset
+dataset = load_dataset("json", data_files="puck_knowledge_10k.jsonl", split="train")
 
-# Load model with 4-bit quantization
-model = AutoModelForCausalLM.from_pretrained(
-    "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
-    load_in_4bit=True,
-    device_map="auto",
-    trust_remote_code=True
+# Load Tokenizer (Ensure tokenizer is not deprecated)
+tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neo-2.7B")
+
+# Load the model with the correct configuration
+config = PeftConfig.from_pretrained("path_to_peft_config")
+model = AutoModelForCausalLM.from_pretrained("EleutherAI/gpt-neo-2.7B")
+
+# Applying LoRA with proper configuration
+bnb_config = BitsAndBytesConfig.from_pretrained("EleutherAI/gpt-neo-2.7B")
+
+# Make sure to pass correct quantization configuration
+model = PeftModelForCausalLM.from_pretrained(
+    "EleutherAI/gpt-neo-2.7B",
+    config=config,
+    quantization_config=bnb_config,
 )
 
-# Prepare model for LoRA
-model = prepare_model_for_kbit_training(model)
+# Tokenizing the dataset
+def tokenize_function(examples):
+    return tokenizer(examples["text"], padding="max_length", truncation=True)
 
-# LoRA config
-lora_config = LoraConfig(
-    r=8,
-    lora_alpha=32,
-    target_modules=["q_proj", "v_proj"],  # for TinyLlama; may adjust after inspecting model
-    lora_dropout=0.05,
-    bias="none",
-    task_type="CAUSAL_LM"
-)
+# Tokenize the dataset
+tokenized_datasets = dataset.map(tokenize_function, batched=True)
 
-model = get_peft_model(model, lora_config)
-
-# Training args
+# Set up training arguments with `use_cache=False`
 training_args = TrainingArguments(
-    output_dir="tinylama-lora-4bit-output",
+    output_dir="./results",
+    evaluation_strategy="steps",
     per_device_train_batch_size=4,
-    gradient_accumulation_steps=4,
-    learning_rate=2e-4,
     num_train_epochs=3,
-    logging_steps=10,
-    save_strategy="epoch",
-    fp16=True,
-    push_to_hub=False,
+    save_steps=500,
+    logging_dir="./logs",
+    logging_steps=100,
+    load_best_model_at_end=True,
+    save_total_limit=2,
+    gradient_checkpointing=True,
+    use_cache=False,  # Ensure no cache with gradient checkpointing
+    fp16=True,  # Mixed precision for efficiency
 )
 
-# Trainer
+# Set up the Trainer
 trainer = Trainer(
     model=model,
     args=training_args,
-    train_dataset=tokenized_dataset,
+    train_dataset=tokenized_datasets,
+    eval_dataset=tokenized_datasets,
     tokenizer=tokenizer,
+    compute_metrics=None,  # Add custom metrics if needed
 )
 
-# Train
+# Start the training
 trainer.train()
 
-# Save adapter
-model.save_pretrained("tinylama-lora-4bit-adapter")
+# Save the base model and adapter weights
+model.save_pretrained("./results/base_model")  # Save the base model
+tokenizer.save_pretrained("./results/base_model")  # Save the tokenizer
+
+# Save the LoRA adapter
+model.save_adapter("./results/lora_adapter")  # Save the LoRA adapter weights
