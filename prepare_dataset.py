@@ -7,7 +7,7 @@ def get_tokenized_dataset(model_name="TinyLlama/TinyLlama-1.1B-Chat"):
     tokenizer.pad_token = tokenizer.eos_token  # Ensure pad_token is defined
 
     # Load dataset
-    data = load_dataset("json", data_files="puck_knowledge_10k.jsonl")["train"]
+    data = load_dataset("json", data_files="/kaggle/working/TinyLlama_Personalized_Chatbot/puck_knowledge_10k.jsonl")["train"]
 
     def format(example):
         # Customize this according to your JSONL format
