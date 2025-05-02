@@ -9,13 +9,14 @@ def get_tokenized_dataset(model_name="TinyLlama/TinyLlama-1.1B-Chat-v1.0"):
     # Load dataset
     data = load_dataset("json", data_files="/kaggle/working/TinyLlama_Personalized_Chatbot/puck_knowledge_10k.jsonl")["train"]
 
-    
     def format(example):
         return f"<|user|>: {example['instruction']}\n<|assistant|>: {example['response']}"
 
     def tokenize(example):
         text = format(example)
-        return tokenizer(text, truncation=True, padding="max_length", max_length=512)
+        tokenized = tokenizer(text, truncation=True, padding="max_length", max_length=512)
+        tokenized["labels"] = tokenized["input_ids"].copy()  # Needed for loss calculation
+        return tokenized
 
     tokenized = data.map(tokenize, batched=False)
     return tokenized, tokenizer
