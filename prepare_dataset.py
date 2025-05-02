@@ -2,7 +2,7 @@ from datasets import load_dataset
 from transformers import AutoTokenizer
 import os
 
-def get_tokenized_dataset(model_name="TinyLlama/TinyLlama-1.1B-Chat"):
+def get_tokenized_dataset(model_name="TinyLlama/TinyLlama-1.1B-Chat-v1.0"):
     tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
     tokenizer.pad_token = tokenizer.eos_token  # Ensure pad_token is defined
 

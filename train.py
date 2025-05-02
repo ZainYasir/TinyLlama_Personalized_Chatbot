@@ -8,7 +8,7 @@ tokenized_dataset, tokenizer = get_tokenized_dataset()
 
 # Load model with 4-bit quantization
 model = AutoModelForCausalLM.from_pretrained(
-    "TinyLlama/TinyLlama-1.1B-Chat",
+    "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
     load_in_4bit=True,
     device_map="auto",
     trust_remote_code=True
