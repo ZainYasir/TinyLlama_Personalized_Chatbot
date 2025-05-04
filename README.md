@@ -26,6 +26,22 @@ The dataset is in `.jsonl` format (JSON Lines), with each line representing a si
 ✅ Make sure your file is newline-delimited and well-formatted.
 
 ---
+## 🔍 Preview
+
+Here’s a visual overview of the project steps:
+
+### 🧠 Dataset
+
+![Dataset](preview/Dataset.png)
+
+### 🛠️ Code Structure
+
+![Code](preview/Code.png)
+
+### 🎯 Fine-Tuning Process
+
+![FineTunning](preview/FineTuning.png)
+
 
 ## 🔧 Setup Instructions
 
