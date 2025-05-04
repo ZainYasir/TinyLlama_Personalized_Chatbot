@@ -1,39 +1,59 @@
-from transformers import AutoModelForCausalLM, Trainer, TrainingArguments
-from peft import LoraModel
+from transformers import AutoTokenizer, AutoModelForCausalLM, TrainingArguments, Trainer
+from peft import get_peft_model, LoraConfig, TaskType, prepare_model_for_kbit_training
+from datasets import load_from_disk
 import torch
-import os
-from datasets import load_dataset
 
-# Load dataset (tokenized data)
-train_data_path = "data/tokenized_train_data.jsonl"
-train_data = load_dataset("json", data_files={"train": train_data_path}, split="train")
+MODEL_NAME = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 
-# Load TinyLlama model
-model = AutoModelForCausalLM.from_pretrained("TinyLlama/TinyLlama-1.1B-Chat-v1.0")
+# Load model & tokenizer
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+DEVICE = torch.device("cuda:0")  # Force everything on GPU 0
 
-# Apply LoRA with 4-bit precision
-lora_model = LoraModel(model, r=8, alpha=16, dropout=0.1)  # Adjust parameters as needed
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_NAME,
+    device_map={"": DEVICE},  # force entire model on cuda:0
+    torch_dtype=torch.float16,
+    load_in_4bit=True
+)
+model = prepare_model_for_kbit_training(model)
+model = get_peft_model(model, lora_config)
+model.to(DEVICE)
+# Prepare for LoRA
+model = prepare_model_for_kbit_training(model)
+lora_config = LoraConfig(
+    r=8,
+    lora_alpha=16,
+    target_modules=["q_proj", "v_proj"],
+    lora_dropout=0.1,
+    bias="none",
+    task_type=TaskType.CAUSAL_LM
+)
+model = get_peft_model(model, lora_config)
 
-# Define training arguments
+# Load dataset
+dataset = load_from_disk("puck_tokenized")
+
+# Training setup
 training_args = TrainingArguments(
-    output_dir='./results',            # output directory
-    evaluation_strategy="epoch",       # Evaluate every epoch
-    per_device_train_batch_size=4,     # Adjust based on available GPU memory
-    per_device_eval_batch_size=4,
-    num_train_epochs=3,                # Adjust epochs as needed
-    logging_dir='./logs',              # logging directory
-    logging_steps=10,                  # log every 10 steps
-    save_steps=500,                    # save checkpoint every 500 steps
-    fp16=True,                         # enable mixed-precision training for faster performance
-    logging_first_step=True           # Log the first step
+    output_dir="puck_lora_output",
+    num_train_epochs=3,
+    per_device_train_batch_size=4,
+    gradient_accumulation_steps=4,
+    logging_steps=10,
+    save_strategy="epoch",
+    save_total_limit=2,
+    learning_rate=2e-4,
+    bf16=False,
+    fp16=True,
+    remove_unused_columns=False,
+    report_to="none"  # Disable wandb
 )
 
-# Initialize Trainer
 trainer = Trainer(
-    model=lora_model,
+    model=model,
     args=training_args,
-    train_dataset=train_data,
+    train_dataset=dataset,
+    tokenizer=tokenizer
 )
 
-# Start fine-tuning
 trainer.train()
